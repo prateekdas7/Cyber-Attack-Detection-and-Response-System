@@ -1,5 +1,3 @@
-# file1.py
-
 import subprocess
 from scapy.all import rdpcap, TCP
 import pandas as pd
@@ -16,14 +14,13 @@ def capture_with_tshark(file_name='sample.pcapng', duration=10, interface='Wi-Fi
             time.sleep(1)
             os.remove(file_name)
 
-    # Run tshark to capture packets for a specified duration from the selected interface
     print(f"Starting Wireshark capture on {interface} for {duration} seconds...")
     subprocess.run(
-        [r"D:\wireshark\tshark.exe", "-i", interface, "-a", f"duration:{duration}", "-w", file_name],
+        [r"C:\Program Files\Wireshark\tshark.exe", "-i", interface, "-a", f"duration:{duration}", "-w", file_name],
         check=True
     )
 
-    time.sleep(2)  # Wait for tshark to fully release the file
+    time.sleep(2)
     print(f"Capture completed and saved to {file_name}")
 
 
@@ -36,18 +33,27 @@ def detect_dos_attack(packets, duration=10, threshold=100, syn_threshold=50):
     syn_count = sum(1 for packet in packets if packet.haslayer(TCP) and packet[TCP].flags == 'S')
     print(f"SYN packets count: {syn_count}")
 
+    attacker_ip = None
     if avg_packets_per_second > threshold:
         print("Potential DoS attack detected!")
-        
-        return "dos attack"
+        attacker_ip = packets[0]["IP"].src  # Example of detecting source IP; could be improved
+        return "dos attack", attacker_ip
     
     if syn_count > syn_threshold:
         print("Potential SYN flood attack detected!")
-        return "Syn attack"
+        attacker_ip = packets[0]["IP"].src  # Example of detecting source IP; could be improved
+        return "Syn attack", attacker_ip
     
     print("Traffic appears normal.")
-    print("No danger detected")
-    return "dos attack"
+    return "", None
+
+def add_to_snort_blocklist(attacker_ip, sid):
+    rule = f"drop ip {attacker_ip} any -> any any (msg:\"Block DoS/SYN attacker\"; sid:{sid};)"
+    
+    with open("blocklist.rules", "a") as f:
+        f.write(rule + "\n")
+    print(f"Snort rule added to block IP: {attacker_ip}")
+
 
 def convert_pcapng_to_excel(file_path, output_excel):
     packets = rdpcap(file_path)
@@ -93,15 +99,18 @@ def convert_pcapng_to_excel(file_path, output_excel):
     df.to_excel(output_excel, index=False)
     print(f"Packet data has been saved to {output_excel}")
 
-# Main execution
 sample_pcapng = 'sample.pcapng'
 output_excel = 'packets.xlsx'
 
 capture_with_tshark(file_name=sample_pcapng, duration=10, interface='Wi-Fi')
 packets = rdpcap(sample_pcapng)
-attack_result = detect_dos_attack(packets, duration=10, threshold=100, syn_threshold=50)
+attack_result, attacker_ip = detect_dos_attack(packets, duration=10, threshold=100, syn_threshold=50)
 convert_pcapng_to_excel(sample_pcapng, output_excel)
 
-# Export the result for use in file2.py
+if attacker_ip:
+    # Ensure unique SID by generating a random one or using a counter
+    sid = 1000001  # In a real system, use a unique SID
+    add_to_snort_blocklist(attacker_ip, sid)
+
 def get_attack_result():
     return attack_result

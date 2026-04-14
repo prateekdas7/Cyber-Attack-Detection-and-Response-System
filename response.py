@@ -1,22 +1,19 @@
-# file2.py
-
 import requests
 import json
-import test  # Import file1 instead of test
+import detection
 from plyer import notification
 import tkinter as tk
 from tkinter import scrolledtext, ttk
-import time
 
 def send_prompt(content):
-    url = "http://localhost:11434/api/chat"
+    url = "http://localhost:8000/api/chat"
 
     data = {
-        "model": "llama3.2",
+        "model": "qwen2:0.5b",
         "messages": [
             {
                 "role": "user",
-                "content": f"Write counter-measures for this cyber attack in 5-10 points. After this sentence if you find '--' character sequence, simply write 'No danger detected' : {content}"
+                "content": f"Write counter-measures for this cyber attack in 5-10 points: {content}"
             },
         ],
         "stream": True
